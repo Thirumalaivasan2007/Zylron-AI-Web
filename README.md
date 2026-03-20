@@ -1,6 +1,6 @@
 # 🚀 Zylron AI - Advanced Conversational Assistant
 
-![Zylron AI Banner](./frontend/public/logo.png) 
+![Zylron AI Logo](./frontend/public/logo.png) 
 *Zylron AI* is a cutting-edge, full-stack AI chat application built with a modern React interface. Inspired by the sleek design of Google Gemini, Zylron AI runs purely on local intelligence using Llama 3 via Ollama, ensuring 100% privacy and high-performance offline capabilities. 
 
 Created with ❤️ by **Thirumalai**.
