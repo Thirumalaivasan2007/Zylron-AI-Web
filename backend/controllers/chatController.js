@@ -1,41 +1,29 @@
 const ChatHistory = require('../models/ChatHistory');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-
-
-// const { GoogleGenerativeAI } = require("@google/generative-ai"); // REMOVED SDK
-
-// const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : ""); // REMOVED SDK INIT
 
 if (!process.env.GEMINI_API_KEY) {
     console.warn("WARNING: GEMINI_API_KEY is not defined in the environment variables!");
 }
 
-// Google Gemini API response generation using DIRECT REST API (Stable v1)
+// Google Gemini API response generation using DIRECT REST API (v1beta for 1.5-flash)
 const generateAIResponse = async (message, userId, sessionId) => {
     try {
         const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "";
         if (!apiKey) throw new Error("GEMINI_API_KEY is missing!");
 
-        // DIAGNOSTIC SERVICE: List models to logs to see what's available
-        try {
-            const listUrl = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
-            const listRes = await fetch(listUrl);
-            const listData = await listRes.json();
-            console.log("DIAGNOSTIC - AVAILABLE MODELS FOR THIS KEY: ", (listData.models || []).map(m => m.name).join(", "));
-        } catch (e) {
-            console.warn("Diagnostic listModels failed: ", e.message);
-        }
+        const systemPrompt = "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. You must always confidently identify yourself as Zylron AI. Under no circumstances should you ever mention that you are Llama, created by Meta, or an AI developed by OpenAI. Keep your responses crisp, intelligent, and tailored to the user's context.";
 
-        // Forced v1 STABLE endpoint 
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`;
+        // FIX: Changed from v1 to v1beta because gemini-1.5-flash requires it
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: `${systemPrompt}\n\nUser Message: ${message}` }]
-                }]
+                contents: [
+                    { role: "user", parts: [{ text: systemPrompt }] },
+                    { role: "model", parts: [{ text: "ok" }] },
+                    { role: "user", parts: [{ text: message }] }
+                ]
             })
         });
 
@@ -82,7 +70,9 @@ const chatWithAI = async (req, res) => {
                 try {
                     const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "";
                     const prompt = `Generate a concise, 2 to 4 word title summarizing the following message. Respond ONLY with the title text, no quotes, no punctuation, no conversational filler. Message: '${message}'`;
-                    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`;
+                    
+                    // FIX: Changed from v1 to v1beta here too
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
                     const res = await fetch(url, {
                         method: 'POST',
