@@ -14,9 +14,10 @@ const app = express();
 
 // Middleware - Explicitly allow all origins for Tunneling (ngrok/localtunnel)
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning']
+    origin: "https://zylron-ai-web.vercel.app", 
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 
