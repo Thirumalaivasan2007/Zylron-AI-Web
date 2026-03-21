@@ -5,23 +5,23 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const apiKey = (process.env.GEMINI_API_KEY || "").trim();
 const genAI = new GoogleGenerativeAI(apiKey);
 
-// 2. Simple, clean AI response function using Gemini Pro (Most Compatible)
+// 2. Simple, clean AI response function using Gemini 2.0 Flash (Verified for this Key)
 const generateAIResponse = async (message) => {
     try {
         const systemInstruction = "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. Keep your responses crisp, intelligent, and tailored to the user's context.";
         
-        // Initialize the model (using gemini-pro for stable production use)
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        // Using the verified Gemini 2.0 Flash model
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.0-flash",
+            systemInstruction: systemInstruction 
+        });
         
-        // Combine prompt and message (required for older SDK/model versions)
-        const finalPrompt = `${systemInstruction}\n\nUser Message: ${message}`;
-        
-        const result = await model.generateContent(finalPrompt);
+        const result = await model.generateContent(message);
         const response = await result.response;
         return response.text();
     } catch (error) {
-        console.error("Gemini API Error (Pro):", error);
-        return "Zylron AI is currently experiencing a connection issue. Please check your API Key and Render logs.";
+        console.error("Gemini 2.0 API Error:", error);
+        return "Zylron AI is currently experiencing a connection issue. Please check your API Key and Render logs. (Debug: " + (error.message || "Unknown error") + ")";
     }
 };
 
@@ -45,8 +45,8 @@ const chatWithAI = async (req, res) => {
         
         if (messageCount === 0) {
             try {
-                // Use gemini-pro for title as it's most reliable for short tasks
-                const titleModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+                // Use Gemini 2.0 Flash for blazing fast title generation
+                const titleModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
                 const titlePrompt = `Summarize this message in 2 to 4 words for a chat title. Only give the title, no quotes. Message: '${message}'`;
                 const titleResult = await titleModel.generateContent(titlePrompt);
                 chatTitle = titleResult.response.text().trim().replace(/^["']|["']$/g, '');
