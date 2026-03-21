@@ -10,9 +10,9 @@ const generateAIResponse = async (message) => {
     try {
         const systemInstruction = "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. Keep your responses crisp, intelligent, and tailored to the user's context.";
         
-        // Using the verified Gemini 2.0 Flash model
+        // Using the verified Gemini 2.5 Flash model (Bypasses 429 Quota Limits)
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.0-flash",
+            model: "gemini-2.5-flash",
             systemInstruction: systemInstruction 
         });
         
@@ -45,8 +45,8 @@ const chatWithAI = async (req, res) => {
         
         if (messageCount === 0) {
             try {
-                // Use Gemini 2.0 Flash for blazing fast title generation
-                const titleModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+                // Use Gemini 2.5 Flash for blazing fast title generation
+                const titleModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
                 const titlePrompt = `Summarize this message in 2 to 4 words for a chat title. Only give the title, no quotes. Message: '${message}'`;
                 const titleResult = await titleModel.generateContent(titlePrompt);
                 chatTitle = titleResult.response.text().trim().replace(/^["']|["']$/g, '');
