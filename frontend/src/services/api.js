@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
     // Prioritize external tunnel URLs if provided, otherwise fallback to dynamic LAN IP
-   baseURL : "https://zlyron-ai-web.onrender.com/api",
+   baseURL : "https://zylron-ai-web.onrender.com/api",
 });
 
 // Add a request interceptor to include the JWT token

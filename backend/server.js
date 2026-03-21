@@ -12,12 +12,26 @@ connectDB();
 
 const app = express();
 
-// Middleware - Explicitly allow all origins for Tunneling (ngrok/localtunnel)
-// 1. Allow all origins (Since we use Token, '*' is 100% safe and bug-free)
+// Middleware - Explicitly allow Vercel and all origins for development
+const allowedOrigins = [
+    'https://zylron-ai-web.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+];
+
 app.use(cors({
-    origin: "*", 
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 }));
 
 // 2. The Master Key: Explicitly answer all OPTIONS preflight requests!
@@ -27,6 +41,10 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
+
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'up', message: 'Zylron AI API is healthy' });
+});
 
 app.get('/', (req, res) => {
   res.send('Zylron AI API is running...');
