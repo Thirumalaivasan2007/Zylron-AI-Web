@@ -19,11 +19,9 @@ const generateAIResponse = async (message, userId, sessionId) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [
-                    { role: "user", parts: [{ text: systemPrompt }] },
-                    { role: "model", parts: [{ text: "ok" }] },
-                    { role: "user", parts: [{ text: message }] }
-                ]
+                contents: [{
+                    parts: [{ text: `${systemPrompt}\n\nUser Message: ${message}` }]
+                }]
             })
         });
 
@@ -57,15 +55,12 @@ const chatWithAI = async (req, res) => {
             return res.status(400).json({ message: 'Session ID is required' });
         }
 
-        // Call main AI service FIRST to guarantee response regardless of title generation
         const aiResponse = await generateAIResponse(message, req.user.id, sessionId);
 
-        // ISOLATE TITLE GENERATION
-        let chatTitle = "New Chat"; // Graceful fallback title
+        let chatTitle = "New Chat";
         const messageCount = await ChatHistory.countDocuments({ user: req.user.id, sessionId });
 
         if (messageCount === 0) {
-            // Fire-and-forget background task wrapped in isolated try...catch
             (async () => {
                 try {
                     const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "";
@@ -98,7 +93,6 @@ const chatWithAI = async (req, res) => {
             })();
         }
 
-        // Save to database
         const chatHistory = await ChatHistory.create({
             user: req.user.id,
             sessionId,
@@ -113,7 +107,7 @@ const chatWithAI = async (req, res) => {
     }
 };
 
-// @desc    Get user's chat sessions (grouped, earliest message as title)
+// @desc    Get user's chat sessions
 // @route   GET /api/chat/history
 // @access  Private
 const getHistory = async (req, res) => {
@@ -151,12 +145,9 @@ const deleteSession = async (req, res) => {
     try {
         const targetId = req.params.sessionId;
 
-        // FIX DELETE ROUTE: Try deleting by sessionId FIRST
         let result = await ChatHistory.deleteMany({ user: req.user._id, sessionId: targetId });
 
-        // Fallback: Try deleting by MongoDB _id directly for legacy chats that lack a sessionId
         if (result.deletedCount === 0) {
-            // Check if valid ObjectId to prevent cast errors
             if (targetId.length === 24) {
                 result = await ChatHistory.deleteMany({ user: req.user._id, _id: targetId });
             }
