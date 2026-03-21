@@ -7,7 +7,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ? process.env.GE
 const generateAIResponse = async (message, userId, sessionId) => {
     try {
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-pro",
+            model: "gemini-1.5-flash",
             systemInstruction: "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. You must always confidently identify yourself as Zylron AI. Under no circumstances should you ever mention that you are Llama, created by Meta, or an AI developed by OpenAI. Keep your responses crisp, intelligent, and tailored to the user's context."
         });
 
@@ -16,7 +16,7 @@ const generateAIResponse = async (message, userId, sessionId) => {
         return response.text();
 
     } catch (error) {
-        console.error("GEMINI AI ERROR: ", error.message || error);
+        console.error("GEMINI AI ERROR: ", error);
         return "Zylron AI is currently experiencing a connection issue. Please check your GEMINI_API_KEY and network connection.";
     }
 };
@@ -47,7 +47,7 @@ const chatWithAI = async (req, res) => {
             // Fire-and-forget background task wrapped in isolated try...catch
             (async () => {
                 try {
-                    const titleModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+                    const titleModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
                     const prompt = `Generate a concise, 2 to 4 word title summarizing the following message. Respond ONLY with the title text, no quotes, no punctuation, no conversational filler. Message: '${message}'`;
                     
                     const result = await titleModel.generateContent(prompt);
