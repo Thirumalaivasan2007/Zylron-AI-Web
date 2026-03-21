@@ -1,8 +1,9 @@
 const ChatHistory = require('../models/ChatHistory');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// 1. Initialize official Gemini SDK
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// 1. Initialize official Gemini SDK (ensure key is trimmed)
+const apiKey = (process.env.GEMINI_API_KEY || "").trim();
+const genAI = new GoogleGenerativeAI(apiKey);
 
 // 2. Simple, clean AI response function using Gemini Pro (Most Compatible)
 const generateAIResponse = async (message) => {
