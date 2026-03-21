@@ -3,33 +3,21 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "");
 
-// Local Llama 3 (Ollama) AI-a call pandra puthu function
+// Google Gemini API response generation
 const generateAIResponse = async (message, userId, sessionId) => {
     try {
-        // Ippo namma Python API-ku badhila, Ollama API-a call pandrom!
-        const ollamaResponse = await fetch('http://localhost:11434/api/generate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                model: "llama3", // Llama 3 model-a call pandrom
-                system: "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. You must always confidently identify yourself as Zylron AI. Under no circumstances should you ever mention that you are Llama, created by Meta, or an AI developed by OpenAI. Keep your responses crisp, intelligent, and tailored to the user's context.",
-                prompt: message,
-                stream: false // Itha true aakuna 'Typing' effect kedaikkum (UI upgrade-la paakalam)
-            }) 
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            systemInstruction: "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. You must always confidently identify yourself as Zylron AI. Under no circumstances should you ever mention that you are Llama, created by Meta, or an AI developed by OpenAI. Keep your responses crisp, intelligent, and tailored to the user's context."
         });
 
-        if (!ollamaResponse.ok) {
-            throw new Error("Ollama Server is down!");
-        }
-
-        const aiData = await ollamaResponse.json();
-        return aiData.response; // Ithu thaan Llama 3 kudutha thelivaana bathil
+        const result = await model.generateContent(message);
+        const response = await result.response;
+        return response.text();
 
     } catch (error) {
-        console.error("CRITICAL LOCAL AI ERROR: ", error.message || error);
-        return "Llama 3 run aagala machi! Terminal-la 'ollama run llama3' on-la irukka nu check pannunga.";
+        console.error("GEMINI AI ERROR: ", error.message || error);
+        return "Zylron AI is currently experiencing a connection issue. Please check your GEMINI_API_KEY and network connection.";
     }
 };
 
@@ -59,31 +47,20 @@ const chatWithAI = async (req, res) => {
             // Fire-and-forget background task wrapped in isolated try...catch
             (async () => {
                 try {
+                    const titleModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
                     const prompt = `Generate a concise, 2 to 4 word title summarizing the following message. Respond ONLY with the title text, no quotes, no punctuation, no conversational filler. Message: '${message}'`;
                     
-                    const ollamaResponse = await fetch('http://localhost:11434/api/generate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            model: "llama3", 
-                            prompt: prompt,
-                            stream: false 
-                        }) 
-                    });
+                    const result = await titleModel.generateContent(prompt);
+                    const generatedTitle = String(await result.response.text()).trim().replace(/^["']|["']$/g, '');
 
-                    if (ollamaResponse.ok) {
-                        const aiData = await ollamaResponse.json();
-                        const generatedTitle = String(aiData.response).trim().replace(/^["']|["']$/g, '');
-                        if (generatedTitle) {
-                            await ChatHistory.updateMany(
-                                { user: req.user.id, sessionId },
-                                { $set: { title: generatedTitle } }
-                            );
-                        }
+                    if (generatedTitle) {
+                        await ChatHistory.updateMany(
+                            { user: req.user.id, sessionId },
+                            { $set: { title: generatedTitle } }
+                        );
                     }
                 } catch (err) {
-                    // Gracefully log background error without crashing main execution
-                    console.error("Ollama Title Background Error: ", err.message || err);
+                    console.error("Gemini Title Background Error: ", err.message || err);
                 }
             })();
         }
