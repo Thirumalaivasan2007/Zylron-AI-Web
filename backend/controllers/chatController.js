@@ -14,9 +14,9 @@ const generateAIResponse = async (message, userId, sessionId) => {
             throw new Error("GEMINI_API_KEY is missing from environment variables!");
         }
 
-        // Initialize the model (using gemini-1.5-flash)
+        // Initialize the model (using gemini-pro for stability)
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
+            model: "gemini-pro",
             systemInstruction: "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. You must always confidently identify yourself as Zylron AI. Under no circumstances should you ever mention that you are Llama, created by Meta, or an AI developed by OpenAI. Keep your responses crisp, intelligent, and tailored to the user's context."
         });
 
@@ -57,7 +57,7 @@ const chatWithAI = async (req, res) => {
         if (messageCount === 0) {
             (async () => {
                 try {
-                    const titleModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const titleModel = genAI.getGenerativeModel({ model: "gemini-pro" });
                     const titlePrompt = `Generate a concise, 2 to 4 word title summarizing the following message. Respond ONLY with the title text, no quotes, no punctuation, no conversational filler. Message: '${message}'`;
                     const result = await titleModel.generateContent(titlePrompt);
                     const generatedTitle = result.response.text().trim().replace(/^["']|["']$/g, '');
