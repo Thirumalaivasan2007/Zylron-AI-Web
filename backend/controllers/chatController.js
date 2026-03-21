@@ -4,33 +4,23 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 // 1. Initialize official Gemini SDK
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// 2. Simple, clean AI response function with AUTO-FALLBACK
+// 2. Simple, clean AI response function using Gemini Pro (Most Compatible)
 const generateAIResponse = async (message) => {
-    const systemInstruction = "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. Keep your responses crisp, intelligent, and tailored to the user's context.";
-    
-    // Attempt 1: Gemini 1.5 Flash (Fastest)
     try {
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            systemInstruction: systemInstruction
-        });
-        const result = await model.generateContent(message);
-        return result.response.text();
-    } catch (flashError) {
-        console.warn("Gemini 1.5 Flash failed (likely 404), falling back to Gemini Pro...", flashError.message);
+        const systemInstruction = "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. Keep your responses crisp, intelligent, and tailored to the user's context.";
         
-        // Attempt 2: Gemini Pro (Most Compatible)
-        try {
-            const model = genAI.getGenerativeModel({ 
-                model: "gemini-pro"
-                // Note: older SDKs/models might require system prompt in the message instead of systemInstruction
-            });
-            const result = await model.generateContent(`${systemInstruction}\n\nUser Message: ${message}`);
-            return result.response.text();
-        } catch (proError) {
-            console.error("CRITICAL: All Gemini models failed:", proError);
-            return "Zylron AI is currently experiencing a connection issue. Please check your API Key and Render logs.";
-        }
+        // Initialize the model (using gemini-pro for stable production use)
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        
+        // Combine prompt and message (required for older SDK/model versions)
+        const finalPrompt = `${systemInstruction}\n\nUser Message: ${message}`;
+        
+        const result = await model.generateContent(finalPrompt);
+        const response = await result.response;
+        return response.text();
+    } catch (error) {
+        console.error("Gemini API Error (Pro):", error);
+        return "Zylron AI is currently experiencing a connection issue. Please check your API Key and Render logs.";
     }
 };
 
