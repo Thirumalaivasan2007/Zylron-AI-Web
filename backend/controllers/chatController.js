@@ -6,12 +6,11 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ? process.env.GE
 // Google Gemini API response generation
 const generateAIResponse = async (message, userId, sessionId) => {
     try {
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            systemInstruction: "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. You must always confidently identify yourself as Zylron AI. Under no circumstances should you ever mention that you are Llama, created by Meta, or an AI developed by OpenAI. Keep your responses crisp, intelligent, and tailored to the user's context."
-        });
-
-        const result = await model.generateContent(message);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        
+        const systemPrompt = "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. You must always confidently identify yourself as Zylron AI. Under no circumstances should you ever mention that you are Llama, created by Meta, or an AI developed by OpenAI. Keep your responses crisp, intelligent, and tailored to the user's context.";
+        
+        const result = await model.generateContent(`${systemPrompt}\n\nUser Message: ${message}`);
         const response = await result.response;
         return response.text();
 
