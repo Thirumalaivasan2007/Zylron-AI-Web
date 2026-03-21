@@ -1,34 +1,26 @@
 const ChatHistory = require('../models/ChatHistory');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Initialize Google Generative AI with your API Key
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "");
+// 1. Initialize official Gemini SDK
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-/**
- * @desc    Generate a response using Google Gemini AI SDK
- * @param   {string} message - User input
- */
-const generateAIResponse = async (message, userId, sessionId) => {
+// 2. Simple, clean AI response function
+const generateAIResponse = async (message) => {
     try {
-        if (!process.env.GEMINI_API_KEY) {
-            throw new Error("GEMINI_API_KEY is missing from environment variables!");
-        }
-
-        // Initialize the model (using gemini-pro for stability)
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-pro",
-            systemInstruction: "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. You must always confidently identify yourself as Zylron AI. Under no circumstances should you ever mention that you are Llama, created by Meta, or an AI developed by OpenAI. Keep your responses crisp, intelligent, and tailored to the user's context."
-        });
-
-        const result = await model.generateContent(message);
+        // Using standard flash model
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        
+        const systemPrompt = "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. Keep your responses crisp, intelligent, and tailored to the user's context.";
+        
+        // Combine prompt and message
+        const finalPrompt = `${systemPrompt}\n\nUser Message: ${message}`;
+        
+        const result = await model.generateContent(finalPrompt);
         const response = await result.response;
         return response.text();
-
     } catch (error) {
-        console.error("GEMINI SDK ERROR: ", error);
-        
-        // Fallback for production stability
-        return "Zylron AI is currently experiencing a connection issue. Please check your GEMINI_API_KEY in Render environment variables.";
+        console.error("Gemini API Error:", error);
+        return "Zylron AI is currently experiencing a connection issue. Please check your API Key.";
     }
 };
 
@@ -39,42 +31,29 @@ const chatWithAI = async (req, res) => {
     try {
         const { message, sessionId } = req.body;
 
-        if (!message) {
-            return res.status(400).json({ message: 'Message is required' });
+        if (!message || !sessionId) {
+            return res.status(400).json({ message: 'Message and Session ID are required' });
         }
 
-        if (!sessionId) {
-            return res.status(400).json({ message: 'Session ID is required' });
-        }
+        // Get AI Response
+        const aiResponse = await generateAIResponse(message);
 
-        // Get AI response
-        const aiResponse = await generateAIResponse(message, req.user.id, sessionId);
-
+        // Simple Title Generation for new chat
         let chatTitle = "New Chat";
         const messageCount = await ChatHistory.countDocuments({ user: req.user.id, sessionId });
-
-        // Generate title for the first message in background
+        
         if (messageCount === 0) {
-            (async () => {
-                try {
-                    const titleModel = genAI.getGenerativeModel({ model: "gemini-pro" });
-                    const titlePrompt = `Generate a concise, 2 to 4 word title summarizing the following message. Respond ONLY with the title text, no quotes, no punctuation, no conversational filler. Message: '${message}'`;
-                    const result = await titleModel.generateContent(titlePrompt);
-                    const generatedTitle = result.response.text().trim().replace(/^["']|["']$/g, '');
-                    
-                    if (generatedTitle) {
-                        await ChatHistory.updateMany(
-                            { user: req.user.id, sessionId },
-                            { $set: { title: generatedTitle } }
-                        );
-                    }
-                } catch (err) {
-                    console.error("Gemini Title SDK Error: ", err.message || err);
-                }
-            })();
+            try {
+                const titleModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                const titlePrompt = `Summarize this message in 2 to 4 words for a chat title. Only give the title, no quotes. Message: '${message}'`;
+                const titleResult = await titleModel.generateContent(titlePrompt);
+                chatTitle = titleResult.response.text().trim().replace(/^["']|["']$/g, '');
+            } catch (err) {
+                console.error("Title Generation Error:", err);
+            }
         }
 
-        // Save session to history
+        // Save to Database
         const chatHistory = await ChatHistory.create({
             user: req.user.id,
             sessionId,
@@ -85,7 +64,8 @@ const chatWithAI = async (req, res) => {
 
         res.status(200).json(chatHistory);
     } catch (error) {
-        res.status(500).json({ message: error.message || 'Failed to communicate with AI' });
+        console.error("Chat Controller Error:", error);
+        res.status(500).json({ message: 'Failed to communicate with AI' });
     }
 };
 
@@ -129,10 +109,8 @@ const deleteSession = async (req, res) => {
 
         let result = await ChatHistory.deleteMany({ user: req.user._id, sessionId: targetId });
 
-        if (result.deletedCount === 0) {
-            if (targetId.length === 24) {
-                result = await ChatHistory.deleteMany({ user: req.user._id, _id: targetId });
-            }
+        if (result.deletedCount === 0 && targetId.length === 24) {
+            result = await ChatHistory.deleteMany({ user: req.user._id, _id: targetId });
         }
 
         if (result.deletedCount === 0) {
