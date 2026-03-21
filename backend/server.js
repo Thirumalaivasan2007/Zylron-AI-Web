@@ -13,12 +13,15 @@ connectDB();
 const app = express();
 
 // Middleware - Explicitly allow all origins for Tunneling (ngrok/localtunnel)
+// 1. Allow all origins (Since we use Token, '*' is 100% safe and bug-free)
 app.use(cors({
-    origin: "https://zylron-ai-web.vercel.app", 
+    origin: "*", 
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// 2. The Master Key: Explicitly answer all OPTIONS preflight requests!
+app.options('*', cors());
 app.use(express.json());
 
 // Routes
