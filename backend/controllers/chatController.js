@@ -1,41 +1,33 @@
 const ChatHistory = require('../models/ChatHistory');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-if (!process.env.GEMINI_API_KEY) {
-    console.warn("WARNING: GEMINI_API_KEY is not defined in the environment variables!");
-}
+// Initialize Google Generative AI with your API Key
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "");
 
-// Google Gemini API response generation using DIRECT REST API (v1beta for 1.5-flash)
+/**
+ * @desc    Generate a response using Google Gemini AI SDK
+ * @param   {string} message - User input
+ */
 const generateAIResponse = async (message, userId, sessionId) => {
     try {
-        const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "";
-        if (!apiKey) throw new Error("GEMINI_API_KEY is missing!");
-
-        const systemPrompt = "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. You must always confidently identify yourself as Zylron AI. Under no circumstances should you ever mention that you are Llama, created by Meta, or an AI developed by OpenAI. Keep your responses crisp, intelligent, and tailored to the user's context.";
-
-        // FIX: Changed from v1 to v1beta because gemini-1.5-flash requires it
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: `${systemPrompt}\n\nUser Message: ${message}` }]
-                }]
-            })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            console.error("GEMINI REST API ERROR DETAILS: ", JSON.stringify(data, null, 2));
-            throw new Error(data.error?.message || "Google API returned an error");
+        if (!process.env.GEMINI_API_KEY) {
+            throw new Error("GEMINI_API_KEY is missing from environment variables!");
         }
 
-        return data.candidates[0].content.parts[0].text;
+        // Initialize the model (using gemini-1.5-flash)
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            systemInstruction: "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. You must always confidently identify yourself as Zylron AI. Under no circumstances should you ever mention that you are Llama, created by Meta, or an AI developed by OpenAI. Keep your responses crisp, intelligent, and tailored to the user's context."
+        });
+
+        const result = await model.generateContent(message);
+        const response = await result.response;
+        return response.text();
 
     } catch (error) {
-        console.error("GEMINI AI CRITICAL ERROR: ", error);
+        console.error("GEMINI SDK ERROR: ", error);
+        
+        // Fallback for production stability
         return "Zylron AI is currently experiencing a connection issue. Please check your GEMINI_API_KEY in Render environment variables.";
     }
 };
@@ -55,44 +47,34 @@ const chatWithAI = async (req, res) => {
             return res.status(400).json({ message: 'Session ID is required' });
         }
 
+        // Get AI response
         const aiResponse = await generateAIResponse(message, req.user.id, sessionId);
 
         let chatTitle = "New Chat";
         const messageCount = await ChatHistory.countDocuments({ user: req.user.id, sessionId });
 
+        // Generate title for the first message in background
         if (messageCount === 0) {
             (async () => {
                 try {
-                    const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "";
-                    const prompt = `Generate a concise, 2 to 4 word title summarizing the following message. Respond ONLY with the title text, no quotes, no punctuation, no conversational filler. Message: '${message}'`;
+                    const titleModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const titlePrompt = `Generate a concise, 2 to 4 word title summarizing the following message. Respond ONLY with the title text, no quotes, no punctuation, no conversational filler. Message: '${message}'`;
+                    const result = await titleModel.generateContent(titlePrompt);
+                    const generatedTitle = result.response.text().trim().replace(/^["']|["']$/g, '');
                     
-                    // FIX: Changed from v1 to v1beta here too
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: prompt }] }]
-                        })
-                    });
-
-                    if (res.ok) {
-                        const data = await res.json();
-                        const generatedTitle = String(data.candidates[0].content.parts[0].text).trim().replace(/^["']|["']$/g, '');
-                        if (generatedTitle) {
-                            await ChatHistory.updateMany(
-                                { user: req.user.id, sessionId },
-                                { $set: { title: generatedTitle } }
-                            );
-                        }
+                    if (generatedTitle) {
+                        await ChatHistory.updateMany(
+                            { user: req.user.id, sessionId },
+                            { $set: { title: generatedTitle } }
+                        );
                     }
                 } catch (err) {
-                    console.error("Gemini Title Background Error: ", err.message || err);
+                    console.error("Gemini Title SDK Error: ", err.message || err);
                 }
             })();
         }
 
+        // Save session to history
         const chatHistory = await ChatHistory.create({
             user: req.user.id,
             sessionId,
