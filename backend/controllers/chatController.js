@@ -4,23 +4,33 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 // 1. Initialize official Gemini SDK
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// 2. Simple, clean AI response function
+// 2. Simple, clean AI response function with AUTO-FALLBACK
 const generateAIResponse = async (message) => {
+    const systemInstruction = "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. Keep your responses crisp, intelligent, and tailored to the user's context.";
+    
+    // Attempt 1: Gemini 1.5 Flash (Fastest)
     try {
-        // Using standard flash model
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            systemInstruction: systemInstruction
+        });
+        const result = await model.generateContent(message);
+        return result.response.text();
+    } catch (flashError) {
+        console.warn("Gemini 1.5 Flash failed (likely 404), falling back to Gemini Pro...", flashError.message);
         
-        const systemPrompt = "You are Zylron AI, an ultra-smart, highly advanced, and helpful AI assistant created by Thirumalai. Keep your responses crisp, intelligent, and tailored to the user's context.";
-        
-        // Combine prompt and message
-        const finalPrompt = `${systemPrompt}\n\nUser Message: ${message}`;
-        
-        const result = await model.generateContent(finalPrompt);
-        const response = await result.response;
-        return response.text();
-    } catch (error) {
-        console.error("Gemini API Error:", error);
-        return "Zylron AI is currently experiencing a connection issue. Please check your API Key.";
+        // Attempt 2: Gemini Pro (Most Compatible)
+        try {
+            const model = genAI.getGenerativeModel({ 
+                model: "gemini-pro"
+                // Note: older SDKs/models might require system prompt in the message instead of systemInstruction
+            });
+            const result = await model.generateContent(`${systemInstruction}\n\nUser Message: ${message}`);
+            return result.response.text();
+        } catch (proError) {
+            console.error("CRITICAL: All Gemini models failed:", proError);
+            return "Zylron AI is currently experiencing a connection issue. Please check your API Key and Render logs.";
+        }
     }
 };
 
@@ -44,7 +54,8 @@ const chatWithAI = async (req, res) => {
         
         if (messageCount === 0) {
             try {
-                const titleModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                // Use gemini-pro for title as it's most reliable for short tasks
+                const titleModel = genAI.getGenerativeModel({ model: "gemini-pro" });
                 const titlePrompt = `Summarize this message in 2 to 4 words for a chat title. Only give the title, no quotes. Message: '${message}'`;
                 const titleResult = await titleModel.generateContent(titlePrompt);
                 chatTitle = titleResult.response.text().trim().replace(/^["']|["']$/g, '');
